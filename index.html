@@ -895,6 +895,11 @@
         return false;
       }
     }
+    function friendlyNetErr(e) {
+      const m = String((e && e.message) || e || '');
+      if (/Failed to fetch|NetworkError|Load failed|network/i.test(m)) return '인터넷 연결 자체가 막혔습니다. (1) 인터넷이 켜져 있는지, (2) VPN·회사/학교 보안망·광고차단 프로그램이 AI 사이트 접속을 막고 있지 않은지, (3) 열쇠(API 키)에 한글·띄어쓰기·줄바꿈이 섞이지 않았는지 확인해 주세요. [원문: ' + m + ']';
+      return m;
+    }
     function hasAnyKey() { return !!(state.geminiKey || state.gptKey || state.claudeKey); }
     function updateStorageInfo() {
       const el = document.getElementById('storageInfo'); if (!el) return;
@@ -1687,7 +1692,7 @@
           const res = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true', 'content-type': 'application/json' }, body: JSON.stringify({ model: m, max_tokens: 20, messages: [{ role: 'user', content: '샬롬' }] }) });
           const d = await res.json(); box.innerHTML = res.ok ? `<span class="text-emerald-700 font-semibold">✅ Claude (${m}) 연결 성공!</span>` : `<span class="text-red-600">❌ 실패: ${d?.error?.message || res.status}</span>`;
         }
-      } catch (e) { box.innerHTML = `<span class="text-red-600">❌ 오류: ${e.message}</span>`; }
+      } catch (e) { box.innerHTML = `<span class="text-red-600">❌ 오류: ${esc(friendlyNetErr(e))}</span>`; }
     }
 
     function addJournalLog() { const c = document.getElementById('logCategory').value, t = document.getElementById('logText').value.trim(); if (!t) return; state.logs.unshift({ cat: c, text: t, time: new Date().toLocaleDateString('ko-KR') }); lsSet('shalom_logs', JSON.stringify(state.logs)); document.getElementById('logText').value = ''; renderLogs(); }
@@ -2073,7 +2078,7 @@
       BRIDGE_TOKEN = sessionStorage.getItem('shalom_bt') || '';
     } catch {}
     function bridgeFetch(path, opts = {}) {
-      return bridgeFetch(path, { ...opts, headers: { ...(opts.headers || {}), 'X-Shalom-Token': BRIDGE_TOKEN } });
+      return fetch(LOCAL_API_BASE + path, { ...opts, headers: { ...(opts.headers || {}), 'X-Shalom-Token': BRIDGE_TOKEN } });
     }
     let localServer = { connected: false, workspace: '', python: '', nativeConfirm: true };
 
@@ -2713,7 +2718,7 @@
           resBox.textContent = d.ok ? `✅ 저장 완료: ${d.path}${d.backup ? '\n(이전 파일 보관: ' + d.backup + ')' : ''}` : `❌ ${d.error}`;
           recordLocalAudit('FILE_SAVE', act.filename || 'shalom_output.md', d.ok ? 'OK' : 'ERROR');
           if (d.ok) refreshPcFolderPreview();
-        } catch (e) { resBox.textContent = '❌ 오류: ' + e.message; }
+        } catch (e) { resBox.textContent = '❌ 오류: ' + friendlyNetErr(e); }
       } else if (act.type === 'run_python') {
         if (!state.allowPythonRun) { resBox.textContent = '⚠️ [뮤즈 실행·감사 로그] 메뉴에서 파이썬 실행 권한이 꺼져 있습니다.'; return; }
         resBox.textContent = '⏳ PC 화면에 뜨는 확인 창에서 [예]를 눌러 주세요 (최대 3분 대기)...';
